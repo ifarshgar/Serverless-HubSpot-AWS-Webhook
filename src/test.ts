@@ -1,9 +1,9 @@
 import { HUBSPOT_TABLE_ID } from './config.js';
-import { fetchHubDBTableRows } from './hubspotUtils.js';
+import { fetchHubDBTableRows, publishHubDBTable } from './hubspotUtils.js';
 
 const main = async () => {
   const rows = await fetchHubDBTableRows(HUBSPOT_TABLE_ID);
-  console.log('allRows', JSON.stringify(rows, null, 2));
+  console.log('Fetched:', rows.length ?? 0, 'rows');
 
   const existingRecord = rows.find((row) => {
     if (row.values) {

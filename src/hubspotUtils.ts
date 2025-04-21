@@ -1,6 +1,6 @@
 import { HUBSPOT_ACCESS_TOKEN } from "./config.js";
 import { HubDBRow, HubDBTableSchema, PaginatedResponse } from "./types.js";
-import hubspot from '@hubspot/api-client';
+import * as hubspot from '@hubspot/api-client';
 
 const HubspotBaseUrl = 'https://api.hubapi.com/crm/v3/objects';
 const HubDBBaseUrl = 'https://api.hubapi.com/hubdb/api/v2';
@@ -194,6 +194,10 @@ export const deleteHubDBTableRow = async (tableId: string, rowId: string): Promi
 
 export async function publishHubDBTable(tableId: string): Promise<unknown> {
   try {
+    if (!hubspot || !hubspot.Client) {
+      throw new Error('HubSpot client library is not properly initialized');
+    }
+
     const hubspotClient = new hubspot.Client({
       accessToken: HUBSPOT_ACCESS_TOKEN,
     });

@@ -12,9 +12,7 @@ provider:
     NODE_ENV: ${env:NODE_ENV}
 
 package:
-  patterns:
-     - '!node_modules/**'
-     - '.build/**'
+  excludeDevDependencies: true
 
 functions:
   createHubSpotUserInterest:

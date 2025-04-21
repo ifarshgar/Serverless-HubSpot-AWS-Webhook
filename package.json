@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Updates HubSpot HubDB records via AWS Lambda",
   "main": ".build/createHubSpotUserInterest.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc && echo 'Build complete'",
     "deploy": "npm run build && echo 'Deploying...' && serverless deploy",
@@ -15,7 +15,6 @@
     "dotenv": "^16.5.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.149",
     "@types/node": "^22.14.1",
     "serverless": "^4.14.1",
     "typescript": "^5.8.3"
