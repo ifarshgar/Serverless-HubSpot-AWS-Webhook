@@ -1,0 +1,8 @@
+node_modules
+
+.serverless 
+
+package-lock.json
+yarn-error.log
+
+.env 

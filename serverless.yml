@@ -1,0 +1,25 @@
+service: hubspot-hubdb-updater
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: eu-north-1
+
+  environment:
+    HUBSPOT_ACCESS_TOKEN: ${env:HUBSPOT_ACCESS_TOKEN}
+    HUBSPOT_TABLE_ID: ${env:HUBSPOT_TABLE_ID}
+    NODE_ENV: ${env:NODE_ENV}
+
+
+functions:
+
+  createHubSpotUserInterest:
+    handler: createHubSpotUserInterest.handler
+    timeout: 29 # 29 seconds is the max timeout for AWS Lambda
+    events:
+      - http:
+          path: createHubSpotUserInterest
+          method: post
+          cors: true
+
