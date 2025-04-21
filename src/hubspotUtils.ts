@@ -1,5 +1,6 @@
-const { HUBSPOT_ACCESS_TOKEN } = require('./config');
-const hubspot = require('@hubspot/api-client');
+import { HUBSPOT_ACCESS_TOKEN } from "./config.js";
+import { HubDBRow, HubDBTableSchema, PaginatedResponse } from "./types.js";
+import hubspot from '@hubspot/api-client';
 
 const HubspotBaseUrl = 'https://api.hubapi.com/crm/v3/objects';
 const HubDBBaseUrl = 'https://api.hubapi.com/hubdb/api/v2';
@@ -8,13 +9,20 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const handleHubspotError = async (error, context) => {
-  const errorMessage = `HubSpot Error in ${context}: ${error?.message}`;
-  console.error(errorMessage, error.stack || error);
+export const handleHubspotError = async (error: unknown, context: string): Promise<never> => {
+  const errorMessage = `HubSpot Error in ${context}: ${
+    error instanceof Error ? error.message : String(error)
+  }`;
+  console.error(errorMessage, error instanceof Error ? error.stack : '');
   throw error;
 };
 
-const makeHubspotRequest = async (url, method, body, context) => {
+export const makeHubspotRequest = async <T = unknown>(
+  url: string,
+  method: string,
+  body: unknown,
+  context: string
+): Promise<T> => {
   try {
     const requestInfo = {
       url,
@@ -37,17 +45,23 @@ const makeHubspotRequest = async (url, method, body, context) => {
       throw new Error(errorMessage);
     }
 
-    const responseData = await response.json();
+    const responseData = await response.json() as T;
     console.log(`HubSpot API request succeeded: ${context}`);
     return responseData;
   } catch (error) {
     await handleHubspotError(error, context);
+    throw error; 
   }
 };
 
-const fetchPaginatedData = async (url, propertyParams, resourceName, limit = 100) => {
-  const allResults = [];
-  let after = null;
+export const fetchPaginatedData = async <T = unknown>(
+  url: string,
+  propertyParams: string,
+  resourceName: string,
+  limit = 100
+): Promise<T[]> => {
+  const allResults: T[] = [];
+  let after: string | null = null;
   let pageCount = 0;
 
   console.log(`Starting paginated fetch for ${resourceName}`);
@@ -57,20 +71,22 @@ const fetchPaginatedData = async (url, propertyParams, resourceName, limit = 100
     const requestUrl = new URL(url);
     if (after) requestUrl.searchParams.append('after', after);
     if (propertyParams) requestUrl.searchParams.append('properties', propertyParams);
-    requestUrl.searchParams.append('limit', limit);
+    requestUrl.searchParams.append('limit', limit.toString());
 
     console.log(
       `Fetching page ${pageCount} for ${resourceName}${after ? ` (after: ${after})` : ''}`
     );
 
-    const data = await makeHubspotRequest(
+    const data = await makeHubspotRequest<PaginatedResponse>(
       requestUrl.toString(),
       'GET',
       null,
       `fetchPaginatedData-${resourceName}-page${pageCount}`
     );
 
-    allResults.push(...(data.results || []));
+    if (data.results) {
+      allResults.push(...(data.results as T[]));
+    }
     after = data.paging?.next?.after || null;
   } while (after);
 
@@ -80,46 +96,53 @@ const fetchPaginatedData = async (url, propertyParams, resourceName, limit = 100
   return allResults;
 };
 
-// Fetches all rows from a HubDB table
-const fetchHubDBTableRows = async (tableId, columns = []) => {
+export const fetchHubDBTableRows = async (
+  tableId: string,
+  columns: string[] = []
+): Promise<HubDBRow[]> => {
   const context = `fetchHubDBTableRows-${tableId}`;
   try {
     const url = new URL(`${HubDBBaseUrl}/tables/${tableId}/rows`);
     if (columns.length > 0) {
       url.searchParams.append('columnNames', columns.join(','));
-      url.searchParams.append('limit', 100);
+      url.searchParams.append('limit', '100');
     }
-    const response = await makeHubspotRequest(url.toString(), 'GET', null, context);
-    return response || [];
+    const response = await makeHubspotRequest<{ objects: HubDBRow[] }>(
+      url.toString(),
+      'GET',
+      null,
+      context
+    );
+    return response.objects || [];
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Fetches a single row from a HubDB table by row ID
-const fetchHubDBTableRow = async (tableId, rowId) => {
+export const fetchHubDBTableRow = async (tableId: string, rowId: string): Promise<HubDBRow> => {
   const context = `fetchHubDBTableRow-${tableId}-${rowId}`;
   try {
     const url = `${HubDBBaseUrl}/tables/${tableId}/rows/${rowId}`;
-    return await makeHubspotRequest(url, 'GET', null, context);
+    return await makeHubspotRequest<HubDBRow>(url, 'GET', null, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Fetches the schema/metadata for a HubDB table
-const fetchHubDBTableSchema = async (tableId) => {
+export const fetchHubDBTableSchema = async (tableId: string): Promise<HubDBTableSchema> => {
   const context = `fetchHubDBTableSchema-${tableId}`;
   try {
     const url = `${HubDBBaseUrl}/tables/${tableId}`;
-    return await makeHubspotRequest(url, 'GET', null, context);
+    return await makeHubspotRequest<HubDBTableSchema>(url, 'GET', null, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Fetches all data from a HubDB table including schema and rows
-const fetchHubDBTable = async (tableId, columns = []) => {
+export const fetchHubDBTable = async (
+  tableId: string,
+  columns: string[] = []
+): Promise<{ schema: HubDBTableSchema; rows: HubDBRow[] }> => {
   const context = `fetchHubDBTable-${tableId}`;
   try {
     const [schema, rows] = await Promise.all([
@@ -128,44 +151,48 @@ const fetchHubDBTable = async (tableId, columns = []) => {
     ]);
     return { schema, rows };
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Creates a new row in a HubDB table
-const createHubDBTableRow = async (tableId, rowData) => {
+export const createHubDBTableRow = async (
+  tableId: string,
+  rowData: Record<string, unknown>
+): Promise<HubDBRow> => {
   const context = `createHubDBTableRow-${tableId}`;
   try {
     const url = `${HubDBBaseUrl}/tables/${tableId}/rows`;
-    return await makeHubspotRequest(url, 'POST', { values: rowData }, context);
+    return await makeHubspotRequest<HubDBRow>(url, 'POST', { values: rowData }, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Updates a row in a HubDB table
-const updateHubDBTableRow = async (tableId, rowData, rowId) => {
+export const updateHubDBTableRow = async (
+  tableId: string,
+  rowData: Record<string, unknown>,
+  rowId: string
+): Promise<HubDBRow> => {
   const context = `updateHubDBTableRow-${tableId}-${rowId}`;
   try {
     const url = `${HubDBBaseUrl}/tables/${tableId}/rows/${rowId}`;
-    return await makeHubspotRequest(url, 'PUT', { values: rowData }, context);
+    return await makeHubspotRequest<HubDBRow>(url, 'PUT', { values: rowData }, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-// Deletes a row from a HubDB table
-const deleteHubDBTableRow = async (tableId, rowId) => {
+export const deleteHubDBTableRow = async (tableId: string, rowId: string): Promise<void> => {
   const context = `deleteHubDBTableRow-${tableId}-${rowId}`;
   try {
     const url = `${HubDBBaseUrl}/tables/${tableId}/rows/${rowId}`;
-    return await makeHubspotRequest(url, 'DELETE', null, context);
+    await makeHubspotRequest(url, 'DELETE', null, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-async function publishHubDBTable(tableId) {
+export async function publishHubDBTable(tableId: string): Promise<unknown> {
   try {
     const hubspotClient = new hubspot.Client({
       accessToken: HUBSPOT_ACCESS_TOKEN,
@@ -184,18 +211,24 @@ async function publishHubDBTable(tableId) {
   }
 }
 
-const fetchHubspotOwnerDetails = async (ownerId) => {
+export const fetchHubspotOwnerDetails = async (
+  ownerId: string
+): Promise<Record<string, unknown>> => {
   const context = `fetchOwnerDetails-${ownerId}`;
   try {
     const url = `${HubspotBaseUrl}/owners/${ownerId}`;
-    return await makeHubspotRequest(url, 'GET', null, context);
+    return await makeHubspotRequest<Record<string, unknown>>(url, 'GET', null, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
 };
 
-//  Creates a task in HubSpot assigned to a specific owner
-const createHubspotTask = async (ownerId, subject, body, additionalProps = {}) => {
+export const createHubspotTask = async (
+  ownerId: string,
+  subject: string,
+  body: string,
+  additionalProps: Record<string, unknown> = {}
+): Promise<Record<string, unknown>> => {
   const context = `createTask-${ownerId}`;
   try {
     const url = `${HubspotBaseUrl}/tasks`;
@@ -203,7 +236,7 @@ const createHubspotTask = async (ownerId, subject, body, additionalProps = {}) =
       properties: {
         hs_task_subject: subject,
         hs_task_body: body,
-        hs_task_type: 'TODO', 
+        hs_task_type: 'TODO',
         hs_task_priority: 'HIGH',
         hs_task_status: 'NOT_STARTED',
         hs_timestamp: new Date().toISOString(),
@@ -211,25 +244,8 @@ const createHubspotTask = async (ownerId, subject, body, additionalProps = {}) =
         ...additionalProps,
       },
     };
-    return await makeHubspotRequest(url, 'POST', taskData, context);
+    return await makeHubspotRequest<Record<string, unknown>>(url, 'POST', taskData, context);
   } catch (error) {
-    await handleHubspotError(error, context);
+    return handleHubspotError(error, context);
   }
-};
-
-module.exports = {
-  makeHubspotRequest,
-  fetchPaginatedData,
-  HubspotBaseUrl,
-  HubDBBaseUrl,
-  fetchHubDBTableRows,
-  fetchHubDBTableRow,
-  fetchHubDBTableSchema,
-  fetchHubDBTable,
-  createHubDBTableRow,
-  updateHubDBTableRow,
-  deleteHubDBTableRow,
-  publishHubDBTable,
-  fetchHubspotOwnerDetails,
-  createHubspotTask,
 };

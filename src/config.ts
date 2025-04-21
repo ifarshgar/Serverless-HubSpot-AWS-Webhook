@@ -1,7 +1,9 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
 
-const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
-const HUBSPOT_TABLE_ID = process.env.HUBSPOT_TABLE_ID;
+dotenv.config();
+
+const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN as string;
+const HUBSPOT_TABLE_ID = process.env.HUBSPOT_TABLE_ID as string;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const corsHeaders = {
@@ -12,9 +14,4 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-module.exports = {
-  HUBSPOT_ACCESS_TOKEN,
-  HUBSPOT_TABLE_ID,
-  NODE_ENV,
-  corsHeaders,
-};
+export { HUBSPOT_ACCESS_TOKEN, HUBSPOT_TABLE_ID, NODE_ENV, corsHeaders };

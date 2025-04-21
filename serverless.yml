@@ -11,11 +11,14 @@ provider:
     HUBSPOT_TABLE_ID: ${env:HUBSPOT_TABLE_ID}
     NODE_ENV: ${env:NODE_ENV}
 
+package:
+  patterns:
+     - '!node_modules/**'
+     - '.build/**'
 
 functions:
-
   createHubSpotUserInterest:
-    handler: createHubSpotUserInterest.handler
+    handler: .build/src/functions/createHubSpotUserInterest.handler
     timeout: 29 # 29 seconds is the max timeout for AWS Lambda
     events:
       - http:

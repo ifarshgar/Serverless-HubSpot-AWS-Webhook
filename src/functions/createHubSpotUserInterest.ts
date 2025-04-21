@@ -1,15 +1,17 @@
-const { HUBSPOT_TABLE_ID, corsHeaders } = require('./config');
-const {
-  fetchHubDBTableRows,
+import { corsHeaders, HUBSPOT_TABLE_ID } from '../config.js';
+import {
   createHubDBTableRow,
-  updateHubDBTableRow,
-  publishHubDBTable,
-  fetchHubspotOwnerDetails,
   createHubspotTask,
-} = require('./hubspotUtils');
+  fetchHubDBTableRows,
+  publishHubDBTable,
+  updateHubDBTableRow,
+} from '../hubspotUtils.js';
+import { LambdaEvent, LambdaResponse } from '../types.js';
 
-exports.handler = async (event) => {
+export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
+  // --------------------------------------------
   // Handle OPTIONS request for CORS preflight
+  // --------------------------------------------
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -31,7 +33,10 @@ exports.handler = async (event) => {
       };
     }
 
-    if (action_taken === 'Meld interesse') {
+    // ------------------------------------------
+    // Validate user action
+    // ------------------------------------------
+    if (typeof action_taken === 'string' && action_taken === 'Meld interesse') {
       console.log('Meld interesse action was taken');
     } else {
       console.log('Action not allowed: ', action_taken);
@@ -42,21 +47,21 @@ exports.handler = async (event) => {
       };
     }
 
-    const dealObject = {
+    const dealObject: Record<string, any> = {
       2: deal_id.toString(),
       9: deal_name,
       3: user_email,
       10: user_name,
-      8: flag == true ? 1 : 0,
+      8: flag?.toString() === 'true' ? 1 : 0,
       11: new Date().getTime(),
     };
 
-    let result;
+    let result: any;
 
     const rows = await fetchHubDBTableRows(HUBSPOT_TABLE_ID);
     console.log('allRows', JSON.stringify(rows, null, 2));
 
-    const existingRecord = rows.objects.find((row) => {
+    const existingRecord = rows.find((row) => {
       if (row.values) {
         const id = row.values[2];
         const email = row.values[3];
@@ -68,7 +73,9 @@ exports.handler = async (event) => {
       return false;
     });
 
+    // ------------------------------------------
     // Update or create record
+    // ------------------------------------------
     if (existingRecord) {
       console.log('Updating existing record:', existingRecord);
       result = await updateHubDBTableRow(HUBSPOT_TABLE_ID, dealObject, existingRecord.id);
@@ -77,9 +84,9 @@ exports.handler = async (event) => {
       result = await createHubDBTableRow(HUBSPOT_TABLE_ID, dealObject);
     }
 
-    // -------------------------------------------
-    // Publish the HubDB table after creating or updating a row
-    // -------------------------------------------
+    // ------------------------------------------
+    // Background publish of HubDB table
+    // ------------------------------------------
     (async () => {
       try {
         console.log('Starting background publish of HubDB table...');
@@ -90,9 +97,9 @@ exports.handler = async (event) => {
       }
     })();
 
-    // -----------------------------------------
-    // Making a task for the owner of the deal
-    // -----------------------------------------
+    // ------------------------------------------
+    // Create task for deal owner if specified
+    // ------------------------------------------
     if (deal_owner_id) {
       try {
         const taskSubject = `New interest in deal: ${deal_name}`;
@@ -115,7 +122,7 @@ exports.handler = async (event) => {
         data: result,
       }),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('HubDB Error:', error);
     return {
       statusCode: error.statusCode || 500,

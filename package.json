@@ -2,11 +2,12 @@
   "name": "hubspot-hubdb-updater",
   "version": "1.0.0",
   "description": "Updates HubSpot HubDB records via AWS Lambda",
-  "main": "src/handler.js",
-  "type": "commonjs",
+  "main": ".build/createHubSpotUserInterest.js",
+  "type": "module",
   "scripts": {
-    "deploy": "serverless deploy",
-    "test": "node test.js"
+    "build": "tsc && echo 'Build complete'",
+    "deploy": "npm run build && echo 'Deploying...' && serverless deploy",
+    "test": "npm run build && node .build/src/test.js"
   },
   "dependencies": {
     "@hubspot/api-client": "^8.9.0",
@@ -14,7 +15,10 @@
     "dotenv": "^16.5.0"
   },
   "devDependencies": {
-    "serverless": "^4.12.0"
+    "@types/aws-lambda": "^8.10.149",
+    "@types/node": "^22.14.1",
+    "serverless": "^4.14.1",
+    "typescript": "^5.8.3"
   },
   "keywords": [],
   "author": "",
