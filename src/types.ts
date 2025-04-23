@@ -59,6 +59,62 @@ interface HubDBTableSchema {
   }>;
 }
 
+interface HubSpotOwner {
+  id: string;
+  email: string;
+  type: string;
+  firstName: string;
+  lastName: string;
+  userId: number;
+  userIdIncludingInactive: number;
+  createdAt: string;
+  updatedAt: string;
+  archived: boolean;
+}
+
+interface HubSpotCreateTaskResponse {
+  id: string;
+  properties: {
+    hs_all_owner_ids: string;
+    hs_body_preview: string;
+    hs_body_preview_html: string;
+    hs_body_preview_is_truncated: string;
+    hs_createdate: string;
+    hs_engagements_last_contacted: string;
+    hs_lastmodifieddate: string;
+    hs_object_coordinates: string;
+    hs_object_id: string;
+    hs_object_source: string;
+    hs_object_source_id: string;
+    hs_object_source_label: string;
+    hs_task_body: string;
+    hs_task_completion_count: string;
+    hs_task_family: string;
+    hs_task_for_object_type: string;
+    hs_task_is_all_day: string;
+    hs_task_is_completed: string;
+    hs_task_is_completed_call: string;
+    hs_task_is_completed_email: string;
+    hs_task_is_completed_linked_in: string;
+    hs_task_is_completed_sequence: string;
+    hs_task_is_overdue: string;
+    hs_task_is_past_due_date: string;
+    hs_task_missed_due_date: string;
+    hs_task_missed_due_date_count: string;
+    hs_task_priority: string;
+    hs_task_status: string;
+    hs_task_subject: string;
+    hs_task_type: string;
+    hs_timestamp: string;
+    hs_user_ids_of_all_owners: string;
+    hubspot_owner_assigneddate: string;
+    hubspot_owner_id: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  archived: boolean;
+}
+
 export type {
   LambdaEvent,
   LambdaResponse,
@@ -69,4 +125,6 @@ export type {
   HubspotRequestOptions,
   PaginatedResponse,
   HubDBTableSchema,
+  HubSpotOwner,
+  HubSpotCreateTaskResponse,
 };

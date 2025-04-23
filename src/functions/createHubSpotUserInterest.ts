@@ -1,7 +1,9 @@
 import { corsHeaders, HUBSPOT_TABLE_ID } from '../config.js';
 import {
   createHubDBTableRow,
+  createHubspotAssociation,
   createHubspotTask,
+  fetchAllHubspotOwners,
   fetchHubDBTableRows,
   publishHubDBTable,
   updateHubDBTableRow,
@@ -100,14 +102,21 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     // ------------------------------------------
     // Create task for deal owner if specified
     // ------------------------------------------
-    if (deal_owner_id) {
+    if (deal_owner_id && user_email) {
       try {
+        const owners = await fetchAllHubspotOwners();
+        const owner = owners.find((owner) => owner.email === user_email);
+        const ownerId = owner?.id || deal_owner_id;
+
         const taskSubject = `New interest in deal: ${deal_name}`;
-        const taskBody = `${user_name} (${user_email}) has shown interest in the deal "${deal_name}". Please follow up.`;
-        const task = await createHubspotTask(deal_owner_id, taskSubject, taskBody, {
+        const taskBody = `${user_email} has shown interest in the deal "${deal_name}". Please follow up.`;
+        const task = await createHubspotTask(ownerId, taskSubject, taskBody, {
           hs_task_priority: 'HIGH',
           hs_task_status: 'NOT_STARTED',
         });
+
+        await createHubspotAssociation('tasks', task.id, 'deals', deal_id, '216');
+
         console.log('Created task for owner:', task);
       } catch (error) {
         console.error('Error in owner task creation process:', error);

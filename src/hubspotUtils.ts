@@ -1,5 +1,11 @@
-import { HUBSPOT_ACCESS_TOKEN } from "./config.js";
-import { HubDBRow, HubDBTableSchema, PaginatedResponse } from "./types.js";
+import { HUBSPOT_ACCESS_TOKEN } from './config.js';
+import {
+  HubDBRow,
+  HubDBTableSchema,
+  HubSpotCreateTaskResponse,
+  HubSpotOwner,
+  PaginatedResponse,
+} from './types.js';
 import * as hubspot from '@hubspot/api-client';
 
 const HubspotBaseUrl = 'https://api.hubapi.com/crm/v3/objects';
@@ -45,12 +51,12 @@ export const makeHubspotRequest = async <T = unknown>(
       throw new Error(errorMessage);
     }
 
-    const responseData = await response.json() as T;
+    const responseData = (await response.json()) as T;
     console.log(`HubSpot API request succeeded: ${context}`);
     return responseData;
   } catch (error) {
     await handleHubspotError(error, context);
-    throw error; 
+    throw error;
   }
 };
 
@@ -215,6 +221,22 @@ export async function publishHubDBTable(tableId: string): Promise<unknown> {
   }
 }
 
+export const fetchAllHubspotOwners = async (): Promise<HubSpotOwner[]> => {
+  const context = 'fetchAllOwners';
+  try {
+    const url = 'https://api.hubapi.com/crm/v3/owners';
+    const response = await makeHubspotRequest<{ results: HubSpotOwner[] }>(
+      url,
+      'GET',
+      null,
+      context
+    );
+    return response.results || [];
+  } catch (error) {
+    return handleHubspotError(error, context);
+  }
+};
+
 export const fetchHubspotOwnerDetails = async (
   ownerId: string
 ): Promise<Record<string, unknown>> => {
@@ -232,8 +254,8 @@ export const createHubspotTask = async (
   subject: string,
   body: string,
   additionalProps: Record<string, unknown> = {}
-): Promise<Record<string, unknown>> => {
-  const context = `createTask-${ownerId}`;
+): Promise<HubSpotCreateTaskResponse> => {
+  const context = `createTask-${subject}`;
   try {
     const url = `${HubspotBaseUrl}/tasks`;
     const taskData = {
@@ -248,7 +270,25 @@ export const createHubspotTask = async (
         ...additionalProps,
       },
     };
-    return await makeHubspotRequest<Record<string, unknown>>(url, 'POST', taskData, context);
+    return await makeHubspotRequest<HubSpotCreateTaskResponse>(url, 'POST', taskData, context);
+  } catch (error) {
+    return handleHubspotError(error, context);
+  }
+};
+
+export const createHubspotAssociation = async (
+  fromObjectType: string,
+  fromObjectId: string,
+  toObjectType: string,
+  toObjectId: string,
+  associationTypeId: string
+): Promise<Record<string, unknown>> => {
+  const context = `createAssociation-${fromObjectType}-${fromObjectId}-${toObjectType}-${toObjectId}`;
+  try {
+    const url = `${HubspotBaseUrl}/${fromObjectType}/${fromObjectId}/associations/${toObjectType}/${toObjectId}/${associationTypeId}`;
+
+    // HubSpot PUT associations endpoint expects an empty body
+    return await makeHubspotRequest<Record<string, unknown>>(url, 'PUT', {}, context);
   } catch (error) {
     return handleHubspotError(error, context);
   }
