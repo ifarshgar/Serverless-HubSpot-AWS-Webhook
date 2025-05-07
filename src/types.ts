@@ -1,3 +1,6 @@
+// ======================
+// Lambda Related Types
+// ======================
 interface LambdaEvent {
   httpMethod: string;
   body: string;
@@ -19,6 +22,9 @@ interface RequestBody {
   deal_owner_id: string;
 }
 
+// ======================
+// HubDB Related Types
+// ======================
 interface HubDBRow {
   id: string;
   values: Record<string, any>;
@@ -26,27 +32,6 @@ interface HubDBRow {
 
 interface HubDBResponse {
   objects: HubDBRow[];
-}
-
-interface HubspotErrorContext {
-  context: string;
-  error: unknown;
-}
-
-interface HubspotRequestOptions {
-  url: string;
-  method: string;
-  body?: unknown;
-  context: string;
-}
-
-interface PaginatedResponse {
-  results?: unknown[];
-  paging?: {
-    next?: {
-      after?: string;
-    };
-  };
 }
 
 interface HubDBTableSchema {
@@ -59,6 +44,9 @@ interface HubDBTableSchema {
   }>;
 }
 
+// ======================
+// HubSpot CRM Core Types
+// ======================
 interface HubSpotOwner {
   id: string;
   email: string;
@@ -72,6 +60,25 @@ interface HubSpotOwner {
   archived: boolean;
 }
 
+interface HubspotContact {
+  id: string;
+  properties: {
+    createdate: string;
+    email: string;
+    firstname: string;
+    hs_object_id: string;
+    lastmodifieddate: string;
+    lastname: string;
+    [key: string]: string | undefined; // For additional properties
+  };
+  createdAt: string;
+  updatedAt: string;
+  archived: boolean;
+}
+
+// ======================
+// HubSpot Task Types
+// ======================
 interface HubSpotCreateTaskResponse {
   id: string;
   properties: {
@@ -115,16 +122,72 @@ interface HubSpotCreateTaskResponse {
   archived: boolean;
 }
 
+// ======================
+// API Request/Response Types
+// ======================
+interface HubspotErrorContext {
+  context: string;
+  error: unknown;
+}
+
+interface HubspotRequestOptions {
+  url: string;
+  method: string;
+  body?: unknown;
+  context: string;
+}
+
+interface PaginatedResponse {
+  results?: unknown[];
+  paging?: {
+    next?: {
+      after?: string;
+    };
+  };
+}
+
+// ======================
+// Search API Types
+// ======================
+interface HubspotSearchFilter {
+  propertyName: string;
+  operator: string;
+  value: string | number | boolean;
+}
+
+interface HubspotSearchRequest {
+  filterGroups: Array<{
+    filters: HubspotSearchFilter[];
+  }>;
+  properties: string[];
+  limit?: number;
+  after?: string;
+}
+
+interface HubspotSearchResponse<T = HubspotContact> {
+  total: number;
+  results: T[];
+  paging?: {
+    next?: {
+      after: string;
+    };
+  };
+}
+
 export type {
   LambdaEvent,
   LambdaResponse,
   RequestBody,
   HubDBRow,
   HubDBResponse,
+  HubDBTableSchema,
+  HubSpotOwner,
+  HubspotContact,
+  HubSpotCreateTaskResponse,
   HubspotErrorContext,
   HubspotRequestOptions,
   PaginatedResponse,
-  HubDBTableSchema,
-  HubSpotOwner,
-  HubSpotCreateTaskResponse,
+  HubspotSearchFilter,
+  HubspotSearchRequest,
+  HubspotSearchResponse,
 };

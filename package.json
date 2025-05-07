@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc && echo 'Build complete'",
     "deploy": "npm run build && echo 'Deploying...' && serverless deploy",
+    "offline": "npm run build && echo 'Running offline...' && serverless offline --verbose",
     "test": "npm run build && node .build/src/test.js"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/node": "^22.14.1",
     "serverless": "^4.14.1",
+    "serverless-offline": "^14.4.0",
     "typescript": "^5.8.3"
   },
   "keywords": [],

@@ -1,14 +1,20 @@
-import { corsHeaders, HUBSPOT_TABLE_ID } from '../config.js';
+import { corsHeaders } from '../config.js';
 import {
-  createHubDBTableRow,
   createHubspotAssociation,
   createHubspotTask,
+  createTaskToDealAssociation,
+  deleteHubspotAssociations,
+  deleteHubspotTask,
   fetchAllHubspotOwners,
-  fetchHubDBTableRows,
-  publishHubDBTable,
-  updateHubDBTableRow,
+  fetchTasksByOwnerAndDeal,
+  searchContactByEmail,
 } from '../hubspotUtils.js';
 import { LambdaEvent, LambdaResponse } from '../types.js';
+
+enum ActionTaken {
+  MeldInteresse = 'Meld interesse',
+  AvmeldInteresse = 'Avmeld interesse',
+}
 
 export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
   // --------------------------------------------
@@ -38,89 +44,90 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
     // ------------------------------------------
     // Validate user action
     // ------------------------------------------
-    if (typeof action_taken === 'string' && action_taken === 'Meld interesse') {
+    if (typeof action_taken === 'string' && action_taken === ActionTaken.MeldInteresse) {
       console.log('Meld interesse action was taken');
+    } else if (typeof action_taken === 'string' && action_taken === ActionTaken.AvmeldInteresse) {
+      console.log('Avmeld interesse action was taken');
     } else {
       console.log('Action not allowed: ', action_taken);
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Action not allowed.' }),
+        body: JSON.stringify({ error: 'Not allowed!' }),
       };
     }
 
-    const dealObject: Record<string, any> = {
-      2: deal_id.toString(),
-      9: deal_name,
-      3: user_email,
-      10: user_name,
-      8: flag?.toString() === 'true' ? 1 : 0,
-      11: new Date().getTime(),
-    };
-
     let result: any;
 
-    const rows = await fetchHubDBTableRows(HUBSPOT_TABLE_ID);
-    console.log('allRows', JSON.stringify(rows, null, 2));
-
-    const existingRecord = rows.find((row) => {
-      if (row.values) {
-        const id = row.values[2];
-        const email = row.values[3];
-
-        if (id && email) {
-          return id === deal_id.toString() && email === user_email;
-        }
-      }
-      return false;
-    });
-
     // ------------------------------------------
-    // Update or create record
+    // Create or delete deal to contact assocaition
     // ------------------------------------------
-    if (existingRecord) {
-      console.log('Updating existing record:', existingRecord);
-      result = await updateHubDBTableRow(HUBSPOT_TABLE_ID, dealObject, existingRecord.id);
+    const contacts = await searchContactByEmail(user_email);
+
+    if (contacts.length === 0) {
+      console.log('Contact not found, skiping...');
     } else {
-      console.log('Creating new record:', dealObject);
-      result = await createHubDBTableRow(HUBSPOT_TABLE_ID, dealObject);
+      const contact = contacts[0];
+      console.log('Contact found:', contact);
+
+      if (ActionTaken.MeldInteresse === action_taken) {
+        result = await createHubspotAssociation(
+          'deals',
+          deal_id,
+          'contacts',
+          contact.id,
+          'default'
+        );
+      } else if (ActionTaken.AvmeldInteresse === action_taken) {
+        result = await deleteHubspotAssociations('deals', 'contacts', [
+          {
+            fromId: deal_id,
+            toIds: [contact.id],
+          },
+        ]);
+      }
     }
 
     // ------------------------------------------
-    // Background publish of HubDB table
+    // Create task for deal owner
     // ------------------------------------------
-    (async () => {
-      try {
-        console.log('Starting background publish of HubDB table...');
-        await publishHubDBTable(HUBSPOT_TABLE_ID);
-        console.log('Background HubDB table publish completed');
-      } catch (error) {
-        console.error('Background HubDB publish failed:', error);
-      }
-    })();
+    try {
+      const corrected = deal_owner_id
+        .replace(/(\w+)=/g, '"$1":') // wrap keys in quotes
+        .replace(/:\s*([^",{}]+)/g, ':"$1"') // wrap values in quotes (simple version)
+        .replace(/",\s*/g, '",') // clean spacing
+        .replace(/^"{/, '{') // remove surrounding quotes
+        .replace(/}"$/, '}'); // remove surrounding quotes
 
-    // ------------------------------------------
-    // Create task for deal owner if specified
-    // ------------------------------------------
-    if (deal_owner_id && user_email) {
-      try {
+      const parsedDealOwner = JSON.parse(corrected);
+      console.log('Parsed deal owner:', parsedDealOwner);
+      const dealOwnerId = parsedDealOwner.owner_id;
+      console.log('Deal owner ID:', dealOwnerId);
+      if (parsedDealOwner && dealOwnerId && user_email) {
         const owners = await fetchAllHubspotOwners();
         const owner = owners.find((owner) => owner.email === user_email);
-        const ownerId = owner?.id || deal_owner_id;
+        const ownerId = owner?.id || dealOwnerId;
 
-        const taskSubject = `New interest in deal: ${deal_name}`;
-        const taskBody = `${user_email} has shown interest in the deal "${deal_name}". Please follow up.`;
-        const task = await createHubspotTask(ownerId, taskSubject, taskBody, {
-          hs_task_priority: 'HIGH',
-          hs_task_status: 'NOT_STARTED',
-        });
-
-        await createHubspotAssociation('tasks', task.id, 'deals', deal_id, '216');
-
-        console.log('Created task for owner:', task);
-      } catch (error) {
-        console.error('Error in owner task creation process:', error);
+        if (action_taken !== ActionTaken.AvmeldInteresse) {
+          const taskSubject = `New interest in deal: ${deal_name}`;
+          const taskBody = `${user_email} has shown interest in the deal "${deal_name}". Please follow up.`;
+          const task = await createHubspotTask(ownerId, taskSubject, taskBody, {
+            hs_task_priority: 'HIGH',
+            hs_task_status: 'NOT_STARTED',
+          });
+          // await createHubspotAssociation('tasks', task.id, 'deals', deal_id, '216');
+          await createTaskToDealAssociation(task.id, deal_id);
+          console.log('Created task for owner:', task);
+        } else if (action_taken === ActionTaken.AvmeldInteresse) {
+          const tasks = await fetchTasksByOwnerAndDeal(ownerId, deal_id);
+          if (tasks.length > 0) {
+            await deleteHubspotTask(tasks[0].id);
+            console.log('Deleted task:', tasks[0].id);
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error in owner task creation/deletion process:', error);
     }
 
     return {
@@ -137,7 +144,7 @@ export const handler = async (event: LambdaEvent): Promise<LambdaResponse> => {
       statusCode: error.statusCode || 500,
       headers: corsHeaders,
       body: JSON.stringify({
-        error: 'Database operation failed',
+        error: 'Failed to finish the request successfully',
         message: error.message,
       }),
     };
