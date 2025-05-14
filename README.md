@@ -1,4 +1,4 @@
-# HubSpot AWS Web Hook
+# Serverless HubSpot AWS Web Hook
 
 This project is a Node.js application designed to handle webhooks between HubSpot and AWS services. 
 It facilitates seamless communication and processes data effectively for a specific usecase. 
