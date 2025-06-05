@@ -4,6 +4,8 @@ This project is a Node.js application designed to handle webhooks between HubSpo
 It facilitates seamless communication and processes data effectively for a specific usecase. 
 However, it can be used as a formidable base to develop further functionalities. 
 
+<img src="https://github.com/ifarshgar/Serverless-HubSpot-AWS-Webhook/blob/master/AWS.webp" alt="Amazon Cloud Services" />
+
 ## Features
 
 - **Webhook Integration**: Easily connect HubSpot events with AWS services.
